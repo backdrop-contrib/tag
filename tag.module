@@ -149,7 +149,7 @@ function tag_taginit() {
   $taglist['Block'] = array('func' => 'block_tag_block');
 
   // node
-  $taglist['NodeStatic'] = array('func' => 'node_tag_static');
+  $taglist['NodeSticky'] = array('func' => 'node_tag_sticky');
   $taglist['NodeDate'] = array('func' => 'node_tag_date');
   $taglist['NodeURL'] = array('func' => 'node_tag_url');
   $taglist['NodeTitle'] = array('func' => 'node_tag_title');
@@ -411,8 +411,8 @@ function node_tag_node($vars = array(), $v1 = NULL) {
   return $vars['node']->$v1;
 }
 
-function node_tag_static($vars = array()) {
-  return $vars['node']->static;
+function node_tag_sticky($vars = array()) {
+  return $vars['node']->sticky;
 }
 
 function node_tag_date($vars = array(), $v1 = NULL) {
