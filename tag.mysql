@@ -1,7 +1,0 @@
-DROP TABLE IF EXISTS `tag`;
-CREATE TABLE `tag` (
-  `user_id` int(11) NOT NULL,
-  `starttime` int(11) NOT NULL,
-  `endtime` int(11),
-  PRIMARY KEY  (`user_id`,starttime)
-) TYPE=MyISAM;
