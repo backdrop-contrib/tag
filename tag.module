@@ -1,0 +1,510 @@
+<?php
+// $Id$
+
+// invoke all tags from all modules
+module_invoke_all('taginit');
+tag_init_glob();
+
+function theme_tag_help($title,$info) {
+  return <<<_TAG_HELP_
+<li><strong>$title</strong><br/>
+$info</li>
+<p></p>
+_TAG_HELP_;
+}
+
+function tag_help($section) {
+  switch ($section) {
+    case 'tag/help':
+      $output .= theme('tag_help','DPPageTitle',t('The title of the current page.'));
+      $output .= theme('tag_help','DPSimpleCSS',t("The URL to the simple theme's CSS. See CSS in %info.", array('%info' => l(t('simple theme settings'), 'admin/system/themes/simple'))));
+      $output .= theme('tag_help','DPHeaders',t('Standard Drupal headers.'));
+      $output .= theme('tag_help','DPOnLoads',t('Insert Onload functions specify by modules.'));
+      $output .= theme('tag_help','DPSiteURL',t('The base URL of the site.'));
+      $output .= theme('tag_help','DPSiteName',t('The name of this web site. See %info.', array('%info' => l(t('system configuration'), 'admin/system'))));
+      break;
+    case 'admin/system/modules#description':
+      $output .= t("Allow simple template tags.");
+      break;
+  }
+
+  return $output;
+}
+
+function tag_link($type, $node = 0, $main) {
+  if ($type  == 'system') {
+    if (user_access("administer site configuration")) {
+      menu('tag/help', t('Tag'), 'tag_info', 0, MENU_HIDE);
+    }
+  }
+}
+
+function tag_info() {
+  print theme('page',$output, t('help'));
+}
+
+function tag_init_glob() {
+  global $taglist, $tag_search, $tag_php;
+
+  if (!$taglist) return;
+
+  // we need to sort the taglists so they dont overlap each another...
+
+  foreach ($taglist as $tag => $taginfo) {
+    // if it is a function, lets make a condition out of it!
+    if ($taglist[$tag]['func']) {
+      $add['If'.$tag] = array('cond' => $taglist[$tag]['func']);
+      $add['IfNot'.$tag] = array('notcond' => $taglist[$tag]['func']);
+      $add['ElseIf'.$tag] = array('elseif' => $taglist[$tag]['func']);
+      $add['ElseIfNot'.$tag] = array('elseifnot' => $taglist[$tag]['func']);
+    }
+    else if ($taglist[$tag]['each'] && $taglist[$tag]['vars']) {
+      $add['If'.$tag] = array('cond' => $taglist[$tag]['each']);
+      $add['IfNot'.$tag] = array('notcond' => $taglist[$tag]['each']);
+      $add['ElseIf'.$tag] = array('elseif' => $taglist[$tag]['each']);
+      $add['ElseIfNot'.$tag] = array('elseifnot' => $taglist[$tag]['each']);
+      $add['IfFirst'.$tag] = array('iffirst' => $taglist[$tag]['vars']);
+      $add['IfNotFirst'.$tag] = array('ifnotfirst' => $taglist[$tag]['vars']);
+    }
+  }
+  $taglist = array_merge($add,$taglist);
+
+  foreach ($taglist as $tag => $taginfo) {
+    $php = tag_tag2php($tag);
+    $nopv = preg_replace("/[PARAMS|VARIABLES]/",'',$php);
+
+    // either in the form of <$DPTag$> or <DPTag>
+    $tag_search[] = "|\<\\\$DP".$tag."\\\$\>|";
+    $tag_php[] = $nopv;
+    $tag_search[] = "|\<DP".$tag."\>|";
+    $tag_php[] = $nopv;
+
+    $pv = preg_replace("/PARAMS/",", \\\\1",$php);
+    if ($taglist[$tag]['cond'] || $taglist[$tag]['notcond'] ||
+        $taglist[$tag]['elseif'] || $taglist[$tag]['elseifnot']) {
+      // only conditions can have evaluation criteria
+      $pv = preg_replace("/VARIABLES/"," \\\\2",$pv);
+      $tag_search[] = "|\<\\\$DP".$tag."\\(([^\\)]*)\\)\s*([^\\\$]*)\\\$\>|";
+      $tag_php[] = $pv;
+      $tag_search[] = "|\<DP".$tag."\\(([^\\)]*)\\)\s*([^\\\$]*)\>|";
+      $tag_php[] = $pv;
+    } else if ($taglist[$tag]['func']) {
+      $pv = preg_replace("/VARIABLES/",'',$pv);
+      $tag_search[] = "|\<\\\$DP".$tag."\\(([^\\)]*)\\)\s*\\\$\>|";
+      $tag_php[] = $pv;
+      $tag_search[] = "|\<DP".$tag."\\(([^\\)]*)\\)\s*\>|";
+      $tag_php[] = $pv;
+    }
+  }
+}
+
+function tag_taginit() {
+  global $taglist;
+
+  // site info
+  $taglist['SiteURL'] = array('func' => 'tag_site_url');
+  $taglist['SiteName'] = array('func' => 'tag_site_name');
+  $taglist['SiteSlogan'] = array('func' => 'tag_site_slogan');
+  $taglist['SiteMission'] = array('func' => 'tag_site_mission');
+  $taglist['SiteLayout'] = array('func' => 'tag_site_layout');
+  $taglist['SiteFooter'] = array('func' => 'tag_site_footer');
+
+  // generic
+  $taglist['Content'] = array('func' => 'tag_generic_content');
+  $taglist['Variable'] = array('func' => 'tag_generic_variable');
+  $taglist['UserAccess'] = array('func' => 'tag_generic_user_access');
+
+  // drupal core
+  $taglist['Headers'] = array('func' => 'tag_drupal_headers');
+  $taglist['Footers'] = array('func' => 'tag_drupal_footers');
+  $taglist['OnLoads'] = array('func' => 'tag_drupal_onload');
+
+  // page info
+  $taglist['Title'] = array('func' => 'tag_page_title');
+  $taglist['Breadcrumbs'] = array('func' => 'tag_page_breadcrumb');
+  $taglist['ForEachBreadcrumb'] = array('foreach' => 'tag_page_breadcrumb',
+                                        'vars' => 'breadcrumb');
+  $taglist['Breadcrumb'] = array('each' => 'tag_page_breadcrumb_each',
+                                 'vars' => 'breadcrumb');
+  $taglist['Help'] = array('func' => 'tag_page_help');
+  $taglist['Messages'] = array('func' => 'tag_page_message');
+  $taglist['ForEachMessage'] = array('foreach' => 'tag_page_message',
+                                     'vars'    => 'message');
+  $taglist['Message'] = array('each' => 'tag_page_message_each',
+                              'vars' => 'message');
+  $taglist['MessageType'] = array('func' => 'tag_page_message_type');
+
+  // links
+  $taglist['Links'] = array('func' => 'tag_links');
+  $taglist['ForEachLink'] = array('foreach' => 'tag_links',
+                                  'vars'    => 'link');
+  $taglist['Link'] = array('each' => 'tag_links_each',
+                           'vars' => 'link');
+
+  // block
+  $taglist['Sidebar'] = array('func' => 'block_tag_sidebar');
+  $taglist['BlockModule'] = array('func' => 'block_tag_module');
+  $taglist['BlockTitle'] = array('func' => 'block_tag_title');
+  $taglist['BlockContent'] = array('func' => 'block_tag_content');
+  $taglist['Block'] = array('func' => 'block_tag_block');
+
+  // node
+  $taglist['NodeStatic'] = array('func' => 'node_tag_static');
+  $taglist['NodeDate'] = array('func' => 'node_tag_date');
+  $taglist['NodeURL'] = array('func' => 'node_tag_url');
+  $taglist['NodeTitle'] = array('func' => 'node_tag_title');
+  $taglist['NodeName'] = array('func' => 'node_tag_name');
+  $taglist['Node'] = array('func' => 'node_tag_node');
+
+  // comment
+  $taglist['CommentNew'] = array('func' => 'comment_tag_comment_new');
+  $taglist['CommentID'] = array('func' => 'comment_tag_comment_id');
+  $taglist['CommentShowTitle'] = array('func' => 'comment_tag_show_title');
+  $taglist['CommentTitleLink'] = array('func' => 'comment_tag_comment_title_link');
+  $taglist['CommentTitle'] = array('func' => 'comment_tag_comment_title');
+  $taglist['CommentName'] = array('func' => 'comment_tag_comment_name');
+  $taglist['CommentDate'] = array('func' => 'comment_tag_comment_date');
+  $taglist['CommentVisible'] = array('func' => 'comment_tag_comment_visible');
+  $taglist['CommentDepth'] = array('func' => 'comment_tag_comment_depth');
+  $taglist['Comment'] = array('func' => 'comment_tag_comment');
+
+  // taxonomy
+  $taglist['Categories'] = array('func' => 'taxonomy_tag_categories');
+  $taglist['ForEachCategory'] = array('foreach' => 'taxonomy_tag_categories',
+                                      'vars' => 'category');
+  $taglist['Category'] = array('each' => 'taxonomy_tag_categories_each',
+                               'vars' => 'category');
+
+  // simple css
+  $taglist['SimpleCSS'] = array('func' => 'simple_tag_css');
+
+  // basic php tags
+  $taglist['Else'] = array('php' => "<?php else : ?>");
+  $taglist['EndIf'] = array('php' => "<?php endif; ?>");
+  $taglist['EndForEach'] = array('php' => "<?php endforeach; ?>");
+}
+
+function tag_tag2php($tag) {
+  global $taglist;
+
+  if (!isset($taglist[$tag])) {
+    watchdog('error', 'Unknown tag DP'.$tag.'!');
+    return '';
+  }
+
+  // if it is php
+  if ($taglist[$tag]['php']) {
+    return $taglist[$tag]['php'];
+  }
+
+  // if it is a function ...
+  if ($taglist[$tag]['func']) {
+    return "<?php print ".$taglist[$tag]['func']."(\$varsPARAMS); ?>";
+  }
+
+  // if it is a condition function ...
+  if ($taglist[$tag]['cond']) {
+    return "<?php if (".$taglist[$tag]['cond']."(\$varsPARAMS)VARIABLES) : ?>";
+  }
+
+  if ($taglist[$tag]['notcond']) {
+    return "<?php if (!".$taglist[$tag]['notcond']."(\$varsPARAMS)VARIABLES) : ?>";
+  }
+
+  if ($taglist[$tag]['elseif']) {
+    return "<?php elseif (".$taglist[$tag]['elseif']."(\$varsPARAMS)VARIABLES) : ?>";
+  }
+
+  if ($taglist[$tag]['elseifnot']) {
+    return "<?php elseif (!".$taglist[$tag]['elseifnot']."(\$varsPARAMS)VARIABLES) : ?>";
+  }
+
+  // if it is a foreach loop ...
+  if ($taglist[$tag]['foreach'] && $taglist[$tag]['vars']) {
+    $output .= "<?php \$".$taglist[$tag]['vars']."_count = 0; ?>";
+    $output .= "<?php foreach (".$taglist[$tag]['foreach']."(\$varsPARAMS) as \$".$taglist[$tag]['vars'].") : ?>";
+    $output .= "<?php \$vars['".$taglist[$tag]['vars']."'] = \$".$taglist[$tag]['vars']."; ?>";
+    return $output;
+  }
+
+  if ($taglist[$tag]['each'] && $taglist[$tag]['vars']) {
+    $output .= "<?php \$".$taglist[$tag]['vars']."_count++; ?>";
+    $output .= "<?php print ".$taglist[$tag]['each']."(\$varsPARAMS); ?>";
+    return $output;
+  }
+
+  if ($taglist[$tag]['iffirst']) {
+    return "<?php if (\$".$taglist[$tag]['iffirst']."_count == 0) : ?>";
+  }
+
+  if ($taglist[$tag]['ifnotfirst']) {
+    return "<?php if (\$".$taglist[$tag]['ifnotfirst']."_count == 0) : ?>";
+  }
+
+  watchdog('error', 'Tag DP'.$tag.' cannot be converted to php!');
+  return '';
+}
+
+function tag_process($raw) {
+  global $taglist, $tag_search, $tag_php;
+  $php = preg_replace($tag_search, $tag_php, $raw);
+
+  preg_match_all("|<\\\${0,1}DP[^>]+\\\${0,1}>|",$php,$errors);
+  $errors = array_unique($errors[0]);
+  foreach ($errors as $error) 
+    form_set_error('simple_theme_edit',"Cannot process $error");
+
+  return $php;
+}
+
+/*
+** customized functions
+*/
+
+// site functions
+function tag_site_url($vars = array(), $v1 = NULL) {
+  return url($v1);
+}
+
+function tag_site_name($vars = array()) {
+  return variable_get('site_name', 'Drupal');
+}
+
+function tag_site_slogan($vars = array()) {
+  return variable_get('site_slogan', '');
+}
+
+function tag_site_mission($vars = array()) {
+  // return mission only on frontpage
+  if ($_GET["q"] == variable_get("site_frontpage", "node"))
+    return variable_get('site_mission', '');
+}
+
+function tag_site_layout($vars = array()) {
+  static $layout;
+
+  if ($layout) return $layout;
+
+  $results = db_query('SELECT * FROM {blocks} WHERE (status = 1 OR custom =1)');
+
+  while ($block = db_fetch_object($results)) 
+    $region[$block->region]++;
+
+  if ($region[0] && $region[1]) {
+    $layout = "both";
+  } else if ($region[0]) {
+    $layout = "left";
+  } else {
+    $layout = "right";
+  }
+  return $layout;
+}
+
+function tag_site_footer($vars = array()) {
+  return variable_get('site_footer', '');
+}
+
+// drupal core
+function tag_drupal_headers($vars = array()) {
+  return drupal_get_html_head();
+}
+
+function tag_drupal_footers($vars = array()) {
+  return theme('closure');
+}
+
+function tag_drupal_onload($vars = array()) {
+  return theme_onload_attribute();
+}
+
+// generic
+function tag_generic_content($vars = array()) {
+  return $vars['content'];
+}
+
+function tag_generic_variable($vars = array(), $v1 = NULL) {
+  if ($v1) return variable_get($v, '');
+  return NULL;
+}
+
+function tag_generic_user_access($vars = array(), $v1 = NULL) {
+  if ($v1) return user_access($v1);
+  return NULL;
+}
+
+// page info
+function tag_page_title($vars = array()) {
+  $title = drupal_get_title();
+  if ($title) return $title;
+  return variable_get('site_name', 'Drupal');
+}
+
+function tag_page_breadcrumb($vars = array()) {
+  return drupal_get_breadcrumb();
+}
+
+function tag_page_breadcrumb_each($vars = array()) {
+  return $vars['breadcrumb'];
+}
+
+function tag_page_help($vars = array()) {
+  return menu_get_active_help();
+}
+
+function tag_page_help_each($vars = array()) {
+  return $vars['help'];
+}
+
+function tag_page_message($vars = array()) {
+  // this seem to be a better way to get message without clearing
+  // what is in $_SESSION['message'] but you must manually reset 
+  // the message afterwards...
+  return drupal_set_message();
+}
+
+function tag_page_message_each($vars = array()) {
+  return $vars['message'][0];
+}
+
+function tag_page_message_type($vars = array()) {
+  return $vars['message'][1];
+}
+
+function tag_links($vars = array()) {
+  return $vars['links'];
+}
+
+function tag_links_each($vars = array()) {
+  return $vars['link'];
+}
+
+// block functions - move to block.module some day...
+function block_tag_block($vars = array(), $v1 = NULL) {
+  if (!$v1) return $vars['block'];
+  return $vars['block']->$v1;
+}
+
+function block_tag_module($vars = array()) {
+  return $vars['block']->module;
+}
+
+function block_tag_title($vars = array()) {
+  return $vars['block']->subject;
+}
+
+function block_tag_content($vars = array()) {
+  return $vars['content'];
+}
+
+function block_tag_sidebar($vars = array(), $v1 = 'all') {
+  static $sidebar;
+
+  if ($sidebar[$v1]) return $sidebar[$v1];
+  $sidebar[$v1] = theme("blocks", $v1);
+
+  return $sidebar[$v1];
+}
+
+// node functions - move to node.module some day...
+function node_tag_node($vars = array(), $v1 = NULL) {
+  if (!$v1) return $vars['node'];
+  return $vars['node']->$v1;
+}
+
+function node_tag_static($vars = array()) {
+  return $vars['node']->static;
+}
+
+function node_tag_date($vars = array(), $v1 = NULL) {
+  if (!$v1) return format_date($vars['node']->created);
+  switch ($v1) {
+    case 'small':
+    case 'large':
+    case 'medium':
+      return format_date($vars['node']->created, $v1);
+    default:
+      return format_date($vars['node']->created, 'custom', $v1);
+  }
+}
+
+function node_tag_url($vars = array()) {
+  return url("node/view/".$vars['node']->nid,NULL,NULL,TRUE);
+}
+
+function node_tag_title($vars = array()) {
+  return $vars['node']->title;
+}
+
+function node_tag_name($vars = array()) {
+  return format_name($vars['node']);
+}
+
+// comment functions - move to comment.module some day...
+function comment_tag_comment($vars = array(), $v1 = NULL) {
+  if (!$v1) return $vars['comment'];
+  return $vars['comment']->$v1;
+}
+
+function comment_tag_comment_new($vars = array()) {
+  return $vars['comment']->new;
+}
+
+function comment_tag_comment_id($vars = array()) {
+  return $vars['comment']->cid;
+}
+
+function comment_tag_show_title($vars = array()) {
+  return (variable_get('comment_subject_field', 0) && variable_get("comment_complex", 0));
+}
+
+function comment_tag_comment_title($vars = array()) {
+  return $vars['comment']->subject;
+}
+
+function comment_tag_comment_name($vars = array()) {
+  return format_name($vars['comment']);
+}
+
+function comment_tag_comment_date($vars = array(), $v1 = NULL) {
+  if (!$v1) return format_date($vars['comment']->timestamp);
+  switch ($v1) {
+    case 'small':
+    case 'large':
+    case 'medium':
+      return format_date($vars['comment']->timestamp, $v1);
+    default:
+      return format_date($vars['comment']->timestamp, 'custom', $v1);
+  }
+}
+
+function comment_tag_comment_visible($vars = array()) {
+  return $vars['comment']->visible;
+}
+
+function comment_tag_comment_title_link($vars = array()) {
+  return l($vars['comment']->subject, comment_referer_load().'/'.$vars['comment']->cid.'#'.$vars['comment']->cid);
+}
+
+function comment_tag_comment_depth($vars = array()) {
+  global $user;
+  $mode = $user->mode ? $user->mode : ($_SESSION["comment_mode"] ? $_SESSION["comment_mode"] : variable_get("comment_default_mode", 4));
+  if (variable_get("comment_complex",0) == 0) $mode = 2;
+  if ($mode == 1 || $mode == 2) return 0;
+  return $vars['comment']->depth;
+}
+
+// taxonomy functions - move to taxonomy.module some day...
+function taxonomy_tag_categories($vars = array()) {
+  return $vars['taxonomy'];
+}
+
+function taxonomy_tag_categories_each($vars = array()) {
+  return $vars['category'];
+}
+
+// simple css
+function simple_tag_css($vars = array()) {
+  return simple_style_path();
+}
+
+?>
