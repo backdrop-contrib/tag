@@ -79,16 +79,25 @@ function tag_init_glob() {
     $tag_search[] = "|\<DP".$tag."\>|";
     $tag_php[] = $nopv;
 
-    $pv = preg_replace("/PARAMS/",", \\\\1",$php);
     if ($taglist[$tag]['cond'] || $taglist[$tag]['notcond'] ||
         $taglist[$tag]['elseif'] || $taglist[$tag]['elseifnot']) {
       // only conditions can have evaluation criteria
+      $pv = preg_replace("/PARAMS/",", \\\\1",$php);
       $pv = preg_replace("/VARIABLES/"," \\\\2",$pv);
       $tag_search[] = "|\<\\\$DP".$tag."\\(([^\\)]*)\\)\s*([^\\\$]*)\\\$\>|";
       $tag_php[] = $pv;
       $tag_search[] = "|\<DP".$tag."\\(([^\\)]*)\\)\s*([^\\\$]*)\>|";
       $tag_php[] = $pv;
+
+      $pv = preg_replace("/PARAMS/", '', $php);
+      $pv = preg_replace("/VARIABLES/"," \\\\1",$pv);
+      $tag_search[] = "|\<\\\$DP".$tag."\s*([^\\\$]*)\\\$\>|";
+      $tag_php[] = $pv;
+      $tag_search[] = "|\<DP".$tag."\s*([^\\\$]*)\>|";
+      $tag_php[] = $pv;
+
     } else if ($taglist[$tag]['func']) {
+      $pv = preg_replace("/PARAMS/",", \\\\1",$php);
       $pv = preg_replace("/VARIABLES/",'',$pv);
       $tag_search[] = "|\<\\\$DP".$tag."\\(([^\\)]*)\\)\s*\\\$\>|";
       $tag_php[] = $pv;
@@ -149,11 +158,14 @@ function tag_taginit() {
   $taglist['Block'] = array('func' => 'block_tag_block');
 
   // node
-  $taglist['NodeSticky'] = array('func' => 'node_tag_sticky');
+  $taglist['NodeStatic'] = array('func' => 'node_tag_static');
   $taglist['NodeDate'] = array('func' => 'node_tag_date');
   $taglist['NodeURL'] = array('func' => 'node_tag_url');
   $taglist['NodeTitle'] = array('func' => 'node_tag_title');
   $taglist['NodeName'] = array('func' => 'node_tag_name');
+  $taglist['NodeID'] = array('func' => 'node_tag_id');
+  $taglist['NodeReadMore'] = array('func' => 'node_tag_read_more');
+  $taglist['NodeType'] = array('func' => 'node_tag_node_type');
   $taglist['Node'] = array('func' => 'node_tag_node');
 
   // comment
@@ -263,7 +275,7 @@ function tag_process($raw) {
 
 // site functions
 function tag_site_url($vars = array(), $v1 = NULL) {
-  return url($v1);
+  return url($v1, NULL, NULL, TRUE);
 }
 
 function tag_site_name($vars = array()) {
@@ -411,8 +423,8 @@ function node_tag_node($vars = array(), $v1 = NULL) {
   return $vars['node']->$v1;
 }
 
-function node_tag_sticky($vars = array()) {
-  return $vars['node']->sticky;
+function node_tag_static($vars = array()) {
+  return $vars['node']->static;
 }
 
 function node_tag_date($vars = array(), $v1 = NULL) {
@@ -437,6 +449,18 @@ function node_tag_title($vars = array()) {
 
 function node_tag_name($vars = array()) {
   return format_name($vars['node']);
+}
+
+function node_tag_id($vars = array()) {
+  return $vars['node']->nid;
+}
+
+function node_tag_read_more($vars = array()) {
+  return $vars['main'] && $vars['node']->readmore;
+}
+
+function node_tag_node_type($vars = array()) {
+  return $vars['node']->type;
 }
 
 // comment functions - move to comment.module some day...
