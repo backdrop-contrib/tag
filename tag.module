@@ -178,6 +178,7 @@ function tag_taginit() {
   $taglist['CommentDate'] = array('func' => 'comment_tag_comment_date');
   $taglist['CommentVisible'] = array('func' => 'comment_tag_comment_visible');
   $taglist['CommentDepth'] = array('func' => 'comment_tag_comment_depth');
+  $taglist['CommentStatus'] = array('func' => 'comment_tag_comment_status');
   $taglist['Comment'] = array('func' => 'comment_tag_comment');
 
   // taxonomy
@@ -515,6 +516,10 @@ function comment_tag_comment_depth($vars = array()) {
   if (variable_get("comment_complex",0) == 0) $mode = 2;
   if ($mode == 1 || $mode == 2) return 0;
   return $vars['comment']->depth;
+}
+
+function comment_tag_comment_status($vars = array()) {
+  return $vars['comment']->status;
 }
 
 // taxonomy functions - move to taxonomy.module some day...
