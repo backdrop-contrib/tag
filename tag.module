@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 // invoke all tags from all modules
 module_invoke_all('taginit');
