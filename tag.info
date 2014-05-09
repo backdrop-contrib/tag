@@ -1,0 +1,5 @@
+name = Tag
+description = Provides a front end implementation of the Tag API.
+core = 7.x
+files[] = tag.module
+package = Tags
