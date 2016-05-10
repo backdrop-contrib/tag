@@ -1,12 +1,5 @@
-INTRODUCTION
-------------
-This module was originally suggested by Nedjo Rogers on 
-http://groups.drupal.org/node/100179.  The group discussion page gathered much 
-attention at the time, but little unification actually resulted from the 
-discussions.  I felt the concepts discussed were a good idea, and that the 
-Autotag module would benefit from them.
-
-* Concept
+Tag Module
+==========
 
 The Tag module provides two basic components:
 
@@ -37,7 +30,7 @@ None.
 RECOMMENDED MODULES
 -------------------
 
-- Autotag module (http://drupal.org/project/autotag)
+- Autotag module (http://backdrop.org/project/autotag)
 
 INSTALLATION
 ------------
@@ -51,9 +44,22 @@ The module has no menu or modifiable settings.  There is no
 configuration. 
 
 
+LICENSE
+---------------    
+
+This project is GPL v2 software. See the LICENSE.txt file in this directory 
+for complete text.
+
 MAINTAINERS
 -----------
 
 Current maintainers:
+
+* Wilmoth Shillingford (docwilmot) - https://github.com/docwilmot
+
+CREDIT
+-----------
+
+Original maintainer:
 
 * Simon Rycroft (sdrycroft) - https://www.drupal.org/user/151544

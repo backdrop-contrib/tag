@@ -1,5 +1,4 @@
 name = Tag
 description = Provides a front end implementation of the Tag API.
-core = 7.x
-files[] = tag.module
+backdrop = 1.x
 package = Tags

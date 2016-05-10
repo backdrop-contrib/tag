@@ -29,7 +29,7 @@ function tag_form_node_type_form_alter(&$form, &$form_state, $form_id){
   $search_services = module_invoke_all('tag_suggestion_info');
   $search_options = array();
   $search_options_forms = array();
-  $settings = variable_get('tag_node_' . $form['#node_type']->type, array());
+  $settings = config_get('tag.settings', 'tag_node_' . $form['#node_type']->type);
   foreach($search_services as $key => $search_service){
     // Add the search service option for checkboxes later.
     $search_options[$key] = $search_service['label'];
@@ -61,7 +61,7 @@ function tag_form_node_type_form_alter(&$form, &$form_state, $form_id){
     'options',
     'tree_widget'
   );
-  drupal_alter('tag_field_types', $field_types);
+  backdrop_alter('tag_field_types', $field_types);
   foreach($instances as $key => $instance){
     if(in_array($instance['widget']['module'], $field_types)){
       $field_options[$key] = $instance['label'];
@@ -76,7 +76,7 @@ function tag_form_node_type_form_alter(&$form, &$form_state, $form_id){
     }
   }
   // Set the default value to the search fields to be ALL text fields.
-  $search_fields_default = array(); //variable_get('tag_search_fields_' . $form['#node_type']->type, array());
+  $search_fields_default = array();
   if(!count($search_fields_default)){
     $search_fields_default = array_keys($search_fields);
   }
@@ -187,10 +187,7 @@ function tag_node_type_form_validate($form, &$form_state){
  * the tag module and their helpers.
  */
 function tag_node_type_form_submit($form, &$form_state){
-  variable_set('tag_node_' . $form['#node_type']->type, $form_state['values']['tag']);
-  // The node form automatically saves a variable that's utterly useless to us,
-  // so we delete it just to keep things tidy!
-  variable_del('tag_' . $form['#node_type']->type);
+  config_set('tag.settings', 'tag_node_' . $form['#node_type']->type, $form_state['values']['tag']);
 }
 
 /**
@@ -201,7 +198,7 @@ function tag_form_alter(&$form, &$form_state, $form_id){
     // We're here, we should call our form_alter functions, and add a submit
     // handler.
     // First get what search services we're using.
-    $settings = variable_get('tag_node_' . $form['type']['#value'], array());
+    $settings = config_get('tag.settings', 'tag_node_' . $form['type']['#value']);
     $implementation = isset($settings['tag_ui']) ? $settings['tag_ui'] : '';
     $search_services = module_invoke_all('tag_ui_info');
     if(isset($search_services[$implementation]['form_alter_callback']) && function_exists($search_services[$implementation]['form_alter_callback'])){
@@ -221,7 +218,12 @@ function tag_form_alter(&$form, &$form_state, $form_id){
  */
 function tag_node_type_delete($info){
   if(is_object($info) && isset($info->type)){
-    variable_del("tag_node_{$info->type}");
+    $config = config('tag.settings');
+    $settings = $config->get();
+    $type = "tag_node_{$info->type}";
+    unset($settings[$type]);
+    $config->setData($settings);
+    $config->save();
   }
 }
 
@@ -236,7 +238,7 @@ function tag_submit_form($form, &$form_state){
   // searches should return an array of tags which simply get added to the 
   // tag element of the $node (entity???)
   // First we get the list of fields that we're searching.
-  $settings = variable_get('tag_node_' . $form['type']['#value'], array());
+  $settings = config_get('tag.settings', 'tag_node_' . $form['type']['#value']);
   $implementations = isset($settings['tag_search']) ? $settings['tag_search'] : array();
   $search_services = module_invoke_all('tag_suggestion_info');
   $tags = array();
@@ -310,7 +312,7 @@ function tag_get_values($array){
  */
 function tag_add_tags(&$form_state){
   // First we need to get the field we're adding the data to.
-  $settings = variable_get('tag_node_' . $form_state['values']['type'], array());
+  $settings = config_get('tag.settings', 'tag_node_' . $form_state['values']['type']);
   $field = isset($settings['tag_field']) ? $settings['tag_field'] : FALSE;
   if($field){
     // Get the field
@@ -324,7 +326,7 @@ function tag_add_tags(&$form_state){
       'tree_widget' => 'taxonomy',
       'text' => 'text'
     );
-    drupal_alter('tag_widget_map', $map);
+    backdrop_alter('tag_widget_map', $map);
     if(isset($map[$field_instance['widget']['module']])){
       switch($map[$field_instance['widget']['module']]){
         case 'taxonomy':
@@ -365,11 +367,22 @@ function tag_add_tags(&$form_state){
         default:
           // We've defined a map, but are unable to handle it - we should give
           // an error!
-          drupal_set_message(t('Unable to handle widget of type !type', array(
+          backdrop_set_message(t('Unable to handle widget of type !type', array(
             '!type' => $map[$field_instance['widget']['module']]
           )), 'error');
           break;
       }
     }
   }
+}
+
+/**
+ * Implements hook_config_info().
+ */
+function tag_config_info() {
+  $prefixes['tag.settings'] = array(
+    'label' => 'Tag module settings',
+    'group' => t('Configuration'),
+  );
+  return $prefixes;
 }
