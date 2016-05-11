@@ -194,7 +194,7 @@ function tag_node_type_form_submit($form, &$form_state){
  * Implementation of hook_form_alter().
  */
 function tag_form_alter(&$form, &$form_state, $form_id){
-  if(isset($form['#node_edit_form']) && $form['#node_edit_form']){
+  if(isset($form_state['build_info']['base_form_id']) && $form_state['build_info']['base_form_id'] == 'node_form'){
     // We're here, we should call our form_alter functions, and add a submit
     // handler.
     // First get what search services we're using.
@@ -239,6 +239,7 @@ function tag_submit_form($form, &$form_state){
   // tag element of the $node (entity???)
   // First we get the list of fields that we're searching.
   $settings = config_get('tag.settings', 'tag_node_' . $form['type']['#value']);
+
   $implementations = isset($settings['tag_search']) ? $settings['tag_search'] : array();
   $search_services = module_invoke_all('tag_suggestion_info');
   $tags = array();

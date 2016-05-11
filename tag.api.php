@@ -54,7 +54,7 @@ function hook_tag_suggestion_info(){
       'options' => array(
         'callback' => 'autotag_tag_options',
         'keys' => array(
-          'autotag_vids'
+          'autotag_vocabularies'
         )
       )
     )
